@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import EarlGrey
 
 class AuthenticationTests: KIFTestCase {
     private var webRoot: String!
@@ -10,13 +11,14 @@ class AuthenticationTests: KIFTestCase {
     override func setUp() {
         super.setUp()
         webRoot = SimplePageServer.start()
-        BrowserUtils.dismissFirstRunUI(tester())
+        
+        EarlGrey().selectElementWithMatcher(grey_allOfMatchers(
+            grey_accessibilityID("IntroViewController.startBrowsingButton"), grey_sufficientlyVisible()))
+            .performAction(grey_tap())
     }
     
     override func tearDown() {
         super.tearDown()
-        BrowserUtils.resetToAboutHome(tester())
-        BrowserUtils.clearPrivateData(tester: tester())
     }
 
     /**
@@ -29,27 +31,34 @@ class AuthenticationTests: KIFTestCase {
         enterCredentials(usernameValue: "Username", passwordValue: "Password", username: "foo", password: "bar")
         enterCredentials(usernameValue: "foo", passwordValue: "•••", username: "foo2", password: "bar2")
         enterCredentials(usernameValue: "foo2", passwordValue: "••••", username: "foo3", password: "bar3")
+        
+        // Use KIFTest framework for checking elements within webView
         tester().waitForWebViewElementWithAccessibilityLabel("auth fail")
 
         // Enter valid credentials and ensure the page loads.
-        tester().tapViewWithAccessibilityLabel("Reload")
+        EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("Reload")).performAction(grey_tap())
         enterCredentials(usernameValue: "Username", passwordValue: "Password", username: "user", password: "pass")
         tester().waitForWebViewElementWithAccessibilityLabel("logged in")
 
         // Save the credentials.
-        tester().tapViewWithAccessibilityLabel("Save Login")
-
+        EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("Save Login"))
+            .inRoot(grey_kindOfClass(NSClassFromString("Client.SnackButton")))
+            .performAction(grey_tap())
+        
         logOut()
         loadAuthPage()
 
         // Make sure the credentials were saved and auto-filled.
-        tester().tapViewWithAccessibilityLabel("Log in")
+        EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("Log in"))
+            .inRoot(grey_kindOfClass(NSClassFromString("_UIAlertControllerActionView")))
+            .performAction(grey_tap())
         tester().waitForWebViewElementWithAccessibilityLabel("logged in")
 
         // Add a private tab.
-        tester().tapViewWithAccessibilityLabel("Menu")
-        tester().tapViewWithAccessibilityLabel("New Private Tab")
-
+        EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("Menu")).performAction(grey_tap())
+        EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("New Private Tab"))
+            .inRoot(grey_kindOfClass(NSClassFromString("Client.MenuItemCollectionViewCell")))
+            .performAction(grey_tap())
         loadAuthPage()
 
         // Make sure the auth prompt is shown.
@@ -61,21 +70,33 @@ class AuthenticationTests: KIFTestCase {
     }
 
     private func loadAuthPage() {
-        tester().tapViewWithAccessibilityIdentifier("url")
-        tester().clearTextFromAndThenEnterTextIntoCurrentFirstResponder("\(webRoot)/auth.html\n")
+        EarlGrey().selectElementWithMatcher(grey_accessibilityID("url")).performAction(grey_tap())
+        EarlGrey().selectElementWithMatcher(grey_accessibilityID("address")).performAction(grey_typeText("\(webRoot)/auth.html\n"))
     }
 
     private func logOut() {
-        tester().tapViewWithAccessibilityIdentifier("url")
-        tester().clearTextFromAndThenEnterTextIntoCurrentFirstResponder("\(webRoot)/auth.html?logout=1\n")
-        tester().tapViewWithAccessibilityLabel("Cancel")
+        EarlGrey().selectElementWithMatcher(grey_accessibilityID("url")).performAction(grey_tap())
+        EarlGrey().selectElementWithMatcher(grey_accessibilityID("address")).performAction(grey_typeText("\(webRoot)/auth.html?logout=1\n"))
+        EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("Cancel"))
+            .inRoot(grey_kindOfClass(NSClassFromString("_UIAlertControllerActionView")))
+            .performAction(grey_tap())
     }
 
     private func enterCredentials(usernameValue usernameValue: String, passwordValue: String, username: String, password: String) {
-        let usernameField = tester().waitForViewWithAccessibilityValue(usernameValue) as! UITextField
-        let passwordField = tester().waitForViewWithAccessibilityValue(passwordValue) as! UITextField
-        usernameField.text = username
-        passwordField.text = password
-        tester().tapViewWithAccessibilityLabel("Log in")
-    }
+        let usernameField = EarlGrey().selectElementWithMatcher(grey_accessibilityValue(usernameValue))
+        let passwordField = EarlGrey().selectElementWithMatcher(grey_accessibilityValue(passwordValue))
+        
+        if (usernameValue != "Username") {
+            usernameField.performAction(grey_doubleTap())
+            EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("Select All"))
+                .inRoot(grey_kindOfClass(NSClassFromString("UICalloutBarButton")))
+                .performAction(grey_tap())
+        }
+        
+        usernameField.performAction(grey_typeText(username))
+        passwordField.performAction(grey_typeText(password))
+        
+        EarlGrey().selectElementWithMatcher(grey_accessibilityLabel("Log in"))
+            .inRoot(grey_kindOfClass(NSClassFromString("_UIAlertControllerActionView")))
+            .performAction(grey_tap())    }
 }
